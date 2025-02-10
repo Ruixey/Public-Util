@@ -27,6 +27,20 @@
       rel="stylesheet"
     />
 
+    <!-- Custom CSS to adjust pre/code styling -->
+    <style>
+      pre {
+        margin: 0;
+        padding: 0.5rem 1rem 0.5rem 0.5rem; /* top, right, bottom, left */
+        overflow-x: auto;
+      }
+      pre code {
+        margin: 0;
+        padding: 0;
+        display: block;
+      }
+    </style>
+
     <link rel="stylesheet" href="styles.css" />
 
     <title>Public Util</title>
@@ -34,45 +48,37 @@
 
   <body>
     <div class="container my-5">
-      <h1>Public Util</h1>
-
+      <!-- SSH Public Key Section -->
       <div class="mb-4">
-        <h2>SSH Public Key</h2>
-        <div class="position-relative">
-          <button
-            class="btn btn-primary btn-sm position-absolute top-0 end-0 m-2"
-            onclick="copyToClipboard('sshCode')"
-          >
+        <div class="d-flex justify-content-between align-items-center">
+          <h2>SSH Public Key</h2>
+          <button class="btn btn-primary btn-sm" onclick="copyToClipboard('sshCode')">
             Copy
           </button>
-          <pre><code id="sshCode" class="language-bash">Loading...</code></pre>
         </div>
+        <pre><code id="sshCode" class="language-bash">Loading...</code></pre>
       </div>
 
+      <!-- Signing Public Key Section -->
       <div class="mb-4">
-        <h2>Signing Public Key</h2>
-        <div class="position-relative">
-          <button
-            class="btn btn-primary btn-sm position-absolute top-0 end-0 m-2"
-            onclick="copyToClipboard('signing')"
-          >
+        <div class="d-flex justify-content-between align-items-center">
+          <h2>Signing Public Key</h2>
+          <button class="btn btn-primary btn-sm" onclick="copyToClipboard('signing')">
             Copy
           </button>
-          <pre><code id="signing" class="language-bash">Loading...</code></pre>
         </div>
+        <pre><code id="signing" class="language-bash">Loading...</code></pre>
       </div>
 
-      <div>
-        <h2>Bash Default Configuration</h2>
-        <div class="position-relative">
-          <button
-            class="btn btn-primary btn-sm position-absolute top-0 end-0 m-2"
-            onclick="copyToClipboard('bashrcCode')"
-          >
+      <!-- Bash Default Configuration Section -->
+      <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <h2>Bash Default Configuration</h2>
+          <button class="btn btn-primary btn-sm" onclick="copyToClipboard('bashrcCode')">
             Copy
           </button>
-          <pre><code id="bashrcCode" class="language-bash">Loading...</code></pre>
         </div>
+        <pre><code id="bashrcCode" class="language-bash">Loading...</code></pre>
       </div>
     </div>
 

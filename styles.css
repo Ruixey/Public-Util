@@ -4,23 +4,23 @@ body {
     font-family: "Roboto Mono", monospace;
 }
 
-h1,
 h2 {
     color: #bb86fc;
     text-align: center;
 }
 
 .container {
-    max-width: 800px;
+    max-width: 1000px;
 }
 
 pre {
-    white-space: pre-wrap;
-    /* Enable line wrapping */
+    white-space: pre-wrap; /* Enable line wrapping */
     word-wrap: break-word;
     background-color: #1e1e1e;
     padding: 1rem;
     border-radius: 5px;
+    margin: 0;
+    overflow-x: auto;
 }
 
 .btn-primary {
@@ -31,4 +31,10 @@ pre {
 .btn-primary:hover {
     background-color: #9b68c8;
     border-color: #9b68c8;
+}
+
+pre code {
+    margin: 0;
+    padding: 0;
+    display: block;
 }
