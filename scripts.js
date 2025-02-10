@@ -26,4 +26,5 @@ function copyToClipboard(elementId) {
 window.addEventListener("DOMContentLoaded", () => {
   loadFileContent("ssh", "sshCode");
   loadFileContent("bashrc", "bashrcCode");
+  loadFileContent("signing", "signing");
 });
