@@ -1,0 +1,20 @@
+$WallpaperUrl = "https://bin.spizza.cc/f.php?h=3Gs1IKNk&p=1&k=a7f57d3bb0f653ae278d1a977aa543f9"
+$TempPath = [System.IO.Path]::GetTempPath()
+$WallpaperPath = "$TempPath\wallpaper.jpg"
+
+# Download the wallpaper to temp folder
+Invoke-WebRequest -Uri $WallpaperUrl -OutFile $WallpaperPath
+
+# Set the wallpaper
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public class Wallpaper {
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+}
+"@
+
+[Wallpaper]::SystemParametersInfo(0x0014, 0, $WallpaperPath, 0x01 -bor 0x02)
+
