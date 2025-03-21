@@ -85,7 +85,7 @@ HOSTNAME=$(cat /etc/hostname)  # Get the system hostname
 JSON_PAYLOAD=$(cat <<EOF
 {
     "title": "File Snatched",
-    "message": "A file was successfully snatched from $HOSTNAME",
+    "message": "A file was successfully snatched from $HOSTNAME: $INTENT_URL",
     "priority": 10,
     "extras": {
         "client::notification": {
