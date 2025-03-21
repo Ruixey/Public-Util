@@ -38,7 +38,7 @@ if [ ! -f "$1" ]; then
 fi
 
 # Ret result
-res=$($curl -s -X POST --http1.0 \
+res=$($curl -s -X POST \
               -F "time=$time" \
               -F "file=@$1" \
               $url$apipage)
