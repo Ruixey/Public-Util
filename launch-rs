@@ -1,0 +1,41 @@
+$ErrorActionPreference = 'Stop'
+
+# Load projectJson
+try {
+    $jsonPath = "default.project.json"
+    if (-Not (Test-Path $jsonPath)) {
+        Write-Host "Error: File 'default.project.json' not found."
+        exit 1
+    }
+
+    $projectJson = Get-Content $jsonPath | ConvertFrom-Json
+} catch {
+    Write-Host "Error: Failed to read or parse 'default.project.json'."
+    Write-Host $_.Exception.Message
+    exit 1
+}
+
+# Query Roblox Studio registry path
+try {
+    $key = "Registry::HKEY_CLASSES_ROOT\roblox-studio\shell\open\command"
+    $defaultValue = (Get-ItemProperty -Path $key -Name '(default)').'(default)'
+
+    if ($defaultValue -match '"(.*?)"') {
+        $defaultApp = $Matches[1]
+    } else {
+        throw "Unable to extract executable path from registry value: $defaultValue"
+    }
+} catch {
+    Write-Host "Open error: Roblox Studio not installed or registry entry missing."
+    Write-Host $_.Exception.Message
+    exit 2
+}
+
+# Launch Roblox Studio with arguments
+$arguments = @(
+    "-task", "EditPlace",
+    "-universeId", "$($projectJson.gameId)",
+    "-placeId", "$($projectJson.placeId)"
+)
+
+Start-Process -FilePath $defaultApp -ArgumentList $arguments -NoNewWindow
