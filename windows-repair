@@ -1,0 +1,222 @@
+<#
+.SYNOPSIS
+    Windows System Repair and Diagnostics Script
+.DESCRIPTION
+    Automates the process of diagnosing and repairing Windows system issues,
+    including BSOD problems. Runs DISM, SFC, disk checks, and gathers system info.
+.NOTES
+    Must be run as Administrator for full functionality
+    Author: System Administrator
+    Version: 2.0
+#>
+
+#Requires -Version 5.1
+#Requires -RunAsAdministrator
+
+param(
+    [switch]$SkipDISM = $false,
+    [switch]$SkipCHKDSK = $false,
+    [switch]$EnableDriverVerifier = $false,
+    [string]$LogPath = "$env:TEMP\WindowsRepair_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+)
+
+# Function to write formatted log entries
+function Write-LogEntry {
+    param([string]$Message, [string]$Type = "INFO")
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logMessage = "[$timestamp] [$Type] $Message"
+    Write-Host $logMessage -ForegroundColor $(if ($Type -eq "ERROR") { "Red" } elseif ($Type -eq "WARNING") { "Yellow" } elseif ($Type -eq "SUCCESS") { "Green" } else { "White" })
+    Add-Content -Path $LogPath -Value $logMessage
+}
+
+# Function to execute command and handle output
+function Invoke-SystemCommand {
+    param([string]$Command, [string]$Description, [switch]$IgnoreErrors = $false)
+    
+    Write-LogEntry "Starting: $Description"
+    try {
+        $output = Invoke-Expression $Command 2>&1
+        if ($LASTEXITCODE -ne 0 -and -not $IgnoreErrors) {
+            throw "Command failed with exit code $LASTEXITCODE"
+        }
+        Write-LogEntry "Completed: $Description" -Type "SUCCESS"
+        return $output
+    }
+    catch {
+        Write-LogEntry "Error in $Description : $($_.Exception.Message)" -Type "ERROR"
+        if (-not $IgnoreErrors) {
+            return $null
+        }
+    }
+}
+
+# Header
+Clear-Host
+Write-Host "==================================================" -ForegroundColor Cyan
+Write-Host "    Windows System Repair and Diagnostics Script" -ForegroundColor Cyan
+Write-Host "==================================================" -ForegroundColor Cyan
+Write-Host ""
+
+Write-LogEntry "Starting Windows System Repair Script"
+Write-LogEntry "Log file: $LogPath"
+
+# Check admin privileges
+if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-LogEntry "ERROR: This script must be run as Administrator!" -Type "ERROR"
+    exit 1
+}
+
+Write-LogEntry "Script running with administrator privileges"
+
+# Gather system information first
+Write-LogEntry "Collecting system information..."
+$systemInfo = @"
+System Information:
+- Computer Name: $env:COMPUTERNAME
+- Windows Version: $((Get-CimInstance Win32_OperatingSystem).Caption)
+- Build: $((Get-CimInstance Win32_OperatingSystem).BuildNumber)
+- Architecture: $((Get-CimInstance Win32_OperatingSystem).OSArchitecture)
+- Last Boot Time: $((Get-CimInstance Win32_OperatingSystem).LastBootUpTime)
+- Total Physical Memory: $([math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 2)) GB
+"@
+Write-LogEntry $systemInfo
+
+# Check for recent BSOD information
+Write-LogEntry "Checking for recent system crashes..."
+$events = Get-WinEvent -FilterHashtable @{LogName='System'; ID=1001} -MaxEvents 5 -ErrorAction SilentlyContinue
+if ($events) {
+    Write-LogEntry "Found recent system crash events:" -Type "WARNING"
+    foreach ($event in $events) {
+        $eventTime = $event.TimeCreated
+        Write-LogEntry "Crash at $eventTime" -Type "WARNING"
+    }
+} else {
+    Write-LogEntry "No recent system crash events found in logs"
+}
+
+# Check dump file settings and list existing dumps
+Write-LogEntry "Checking memory dump configuration..."
+$dumpConfig = Get-CimInstance -ClassName Win32_OSRecoveryConfiguration
+Write-LogEntry "Debug file path: $($dumpConfig.DebugFilePath)"
+Write-LogEntry "Write to system log: $($dumpConfig.WriteToSystemLog)"
+
+$dumpFiles = Get-ChildItem -Path "$env:SystemRoot" -Filter "*.dmp" -Recurse -ErrorAction SilentlyContinue
+if ($dumpFiles) {
+    Write-LogEntry "Found memory dump files:" -Type "WARNING"
+    foreach ($file in $dumpFiles) {
+        Write-LogEntry "Dump file: $($file.FullName) - Size: $([math]::Round($file.Length / 1MB, 2)) MB" -Type "WARNING"
+    }
+} else {
+    Write-LogEntry "No memory dump files found"
+}
+
+# Step 1: DISM Repair
+if (-not $SkipDISM) {
+    Write-LogEntry "Starting DISM repair process..."
+    
+    # Check health first
+    Write-LogEntry "Running DISM health check..."
+    $dismCheck = Invoke-SystemCommand -Command "DISM /Online /Cleanup-Image /CheckHealth" -Description "DISM Health Check" -IgnoreErrors
+    
+    # Scan health
+    Write-LogEntry "Running DISM scan..."
+    $dismScan = Invoke-SystemCommand -Command "DISM /Online /Cleanup-Image /ScanHealth" -Description "DISM Scan" -IgnoreErrors
+    
+    # Restore health
+    Write-LogEntry "Running DISM restore health (this may take 10-20 minutes)..."
+    $dismRestore = Invoke-SystemCommand -Command "DISM /Online /Cleanup-Image /RestoreHealth" -Description "DISM Restore Health"
+    
+    if ($dismRestore) {
+        Write-LogEntry "DISM restore health completed. Output saved to log."
+    }
+} else {
+    Write-LogEntry "Skipping DISM repair as requested" -Type "WARNING"
+}
+
+# Step 2: SFC Scan
+Write-LogEntry "Starting System File Checker (SFC) scan..."
+Write-LogEntry "Note: This will verify and repair system files (may take several minutes)"
+
+$sfcResult = Invoke-SystemCommand -Command "sfc /scannow" -Description "SFC Scan"
+
+if ($sfcResult -and $sfcResult -match "Windows Resource Protection did not find any integrity violations") {
+    Write-LogEntry "SFC Scan: No integrity violations found" -Type "SUCCESS"
+} elseif ($sfcResult -and $sfcResult -match "Windows Resource Protection found corrupt files and successfully repaired them") {
+    Write-LogEntry "SFC Scan: Corrupt files found and repaired" -Type "SUCCESS"
+} elseif ($sfcResult -and $sfcResult -match "Windows Resource Protection found corrupt files but was unable to fix some of them") {
+    Write-LogEntry "SFC Scan: Some corrupt files could not be repaired automatically" -Type "WARNING"
+    Write-LogEntry "Check CBS log at C:\Windows\Logs\CBS\CBS.log for details" -Type "WARNING"
+}
+
+# Step 3: Disk Check
+if (-not $SkipCHKDSK) {
+    Write-LogEntry "Starting disk health check..."
+    
+    $diskScan = Invoke-SystemCommand -Command "Repair-Volume -DriveLetter C -Scan" -Description "Online Disk Scan"
+    
+    if ($diskScan -and $diskScan -match "NoErrorsFound") {
+        Write-LogEntry "Disk scan: No errors found" -Type "SUCCESS"
+    } else {
+        Write-LogEntry "Disk errors detected. Scheduling offline repair on next reboot..." -Type "WARNING"
+        $chkdskSchedule = Invoke-SystemCommand -Command "Repair-Volume -DriveLetter C -OfflineScanAndFix" -Description "Schedule Offline Disk Repair" -IgnoreErrors
+        Write-LogEntry "Offline disk repair scheduled. It will run on the next system restart." -Type "WARNING"
+    }
+} else {
+    Write-LogEntry "Skipping disk check as requested" -Type "WARNING"
+}
+
+# Step 4: Optional Driver Verifier Setup
+if ($EnableDriverVerifier) {
+    Write-LogEntry "Configuring Driver Verifier..." -Type "WARNING"
+    Write-LogEntry "WARNING: This will cause system instability to identify bad drivers!" -Type "WARNING"
+    Write-LogEntry "Only proceed if you can troubleshoot potential boot issues!" -Type "WARNING"
+    
+    $response = Read-Host "Do you want to continue with Driver Verifier? (yes/no)"
+    if ($response -eq 'yes') {
+        try {
+            Start-Process "verifier" -Verb RunAs -Wait
+            Write-LogEntry "Driver Verifier configuration completed. System restart required." -Type "WARNING"
+        }
+        catch {
+            Write-LogEntry "Failed to start Driver Verifier: $($_.Exception.Message)" -Type "ERROR"
+        }
+    } else {
+        Write-LogEntry "Driver Verifier setup cancelled by user"
+    }
+}
+
+# Final system health check
+Write-LogEntry "Performing final system health checks..."
+
+# Check critical services
+$criticalServices = @("Winmgmt", "EventLog", "DcomLaunch", "RpcSs")
+foreach ($service in $criticalServices) {
+    $svc = Get-Service -Name $service -ErrorAction SilentlyContinue
+    if ($svc -and $svc.Status -eq 'Running') {
+        Write-LogEntry "Service $service is running" -Type "SUCCESS"
+    } elseif ($svc) {
+        Write-LogEntry "Service $service is not running: $($svc.Status)" -Type "WARNING"
+    }
+}
+
+# Summary
+Write-LogEntry "=================================================="
+Write-LogEntry "WINDOWS REPAIR SCRIPT COMPLETED" -Type "SUCCESS"
+Write-LogEntry "=================================================="
+Write-LogEntry "Next steps:"
+Write-LogEntry "1. Review the log file at: $LogPath"
+Write-LogEntry "2. Restart your computer to complete any pending repairs"
+Write-LogEntry "3. Monitor system stability after restart"
+Write-LogEntry "4. If BSODs persist, analyze memory dump files with WinDbg"
+Write-LogEntry ""
+Write-LogEntry "To analyze dump files:"
+Write-LogEntry "- Install WinDbg Preview from Microsoft Store"
+Write-LogEntry "- Open dump files from C:\Windows\Minidump\"
+Write-LogEntry "- Run '!analyze -v' in WinDbg"
+Write-LogEntry "=================================================="
+
+# Display log location
+Write-Host ""
+Write-Host "Script execution completed!" -ForegroundColor Green
+Write-Host "Detailed log saved to: $LogPath" -ForegroundColor Yellow
+Write-Host "Please restart your computer for all repairs to take effect." -ForegroundColor Cyan
